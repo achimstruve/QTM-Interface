@@ -63,6 +63,7 @@ def convert_date(sys_param):
 
 def get_initial_date(sys_param):
     initial_date = pd.to_datetime(sys_param['launch_date'][0] if isinstance(sys_param['launch_date'], list) else sys_param['launch_date'], format='%d.%m.%Y')
+    # use the following code if you want to use the token launch date as the initial date this would forward the user adoption accordingly.
     if 'token_launch' in sys_param:
         token_launch = sys_param['token_launch'][0] if isinstance(sys_param['token_launch'], list) else sys_param['token_launch']
         if not token_launch:
@@ -281,7 +282,7 @@ def calc_initial_lp_tokens(agent_token_allocations, sys_param):
 
     return lp_token_allocation
 
-def calculate_user_adoption(initial_users,final_users,velocity,timestamp,total_days):
+def calculate_user_adoption(initial_users,final_users,velocity,timestamp):
     """
     Take in user adoption data and calculate the amount of adoption.
 
@@ -292,12 +293,13 @@ def calculate_user_adoption(initial_users,final_users,velocity,timestamp,total_d
         final_users: ending amount of users
         velocity: speed of adoption on those users
         timstep: current timestep in days
-        total_days: length of full simulation.
     
     Returns:
         Number representing the user adoption.    
 
     """
+    # This is what is shown in the model as a constant as the user adoption numbers refer to 10 years (product_users_after_10y & token_holers_after_10y)
+    total_days = 3653
 
     term1 = (1 / (1 + math.exp(-velocity * 0.002 * (timestamp - 1825 / velocity)))) * final_users + initial_users
     term2 = (1 / (1 + math.exp(-velocity * 0.002 * (0 - 1825 / velocity)))) * final_users
@@ -386,7 +388,7 @@ def generate_initial_token_economy_metrics(initial_stakeholders, initial_liquidi
     
     initial_total_supply = sys_param['initial_total_supply'][0]
     tokens_holding_cum = sum([initial_stakeholders[agent]['a_tokens'] for agent in initial_stakeholders if initial_stakeholders[agent]['a_type'] != 'protocol_bucket'])
-    tokens_vested_cum = sum([initial_stakeholders[agent]['a_tokens_vested_cum'] for agent in initial_stakeholders])
+    tokens_vested_cum = sum([initial_stakeholders[agent]['a_tokens_vested_cum'] if initial_stakeholders[agent]['a_tokens_vested_cum']>0 else initial_stakeholders[agent]['a_tokens'] for agent in initial_stakeholders])
     tokens_airdropped_cum = sum([initial_stakeholders[agent]['a_tokens_airdropped_cum'] for agent in initial_stakeholders])
     tokens_incentivised_cum = sum([initial_stakeholders[agent]['a_tokens_incentivised_cum'] for agent in initial_stakeholders])
     lp_tokens = initial_liquidity_pool['lp_tokens']
@@ -418,11 +420,19 @@ def generate_initial_token_economy_metrics(initial_stakeholders, initial_liquidi
         'te_minted_tokens_usd': 0, # tokens minted in USD
         'te_incentivised_tokens' : 0, # tokens incentivised
         'te_incentivised_tokens_usd' : 0, # tokens incentivised in USD
-        'te_incentivised_tokens_cum' : tokens_incentivised_cum, # tokens incentivised cumulatively
+        'te_incentivised_tokens_usd_cum' : 0, # tokens incentivised in USD cumulatively
+        'te_incentivised_tokens_cum' : 0, # tokens incentivised cumulatively
         'te_airdrop_tokens' : 0, # tokens airdropped
         'te_airdrop_tokens_usd' : 0, # tokens airdropped in USD
-        'te_airdrop_tokens_cum' : tokens_airdropped_cum, # tokens airdropped cumulatively
+        'te_airdrop_tokens_usd_cum' : 0, # tokens airdropped in USD cumulatively
+        'te_airdrop_tokens_cum' : 0, # tokens airdropped cumulatively
         'te_staking_apr': 0, # staking APR
+        'te_p_r_ratio': 0, # price to revenue ratio
+        'te_p_e_ratio': 0, # price to earnings ratio
+        'te_product_user_per_incentivised_usd': 0, # product users per incentivised token in USD
+        'te_incentivised_usd_per_product_user': 0, # incentivised token in USD per product user
+        'te_bribe_rewards_for_stakers_usd': 0, # bribe rewards for stakers in USD
+        'te_bribe_rewards_for_stakers_usd_cum': 0, # bribe rewards for stakers in USD cumulatively
     }
 
     return token_economy
@@ -449,7 +459,8 @@ def initialize_user_adoption(sys_param):
     regular_product_revenue_per_user = sys_param['regular_product_revenue_per_user'][0]
 
     # print all calculate_user_adoption inputs
-    product_users = calculate_user_adoption(initial_product_users,product_users_after_10y,product_adoption_velocity,current_day,total_days)
+    # product_users = calculate_user_adoption(initial_product_users,product_users_after_10y,product_adoption_velocity,current_day) # use this only for first day at token_launch
+    product_users = initial_product_users
     
     ## Product Revenue    
     product_revenue = product_users*(one_time_product_revenue_per_user+regular_product_revenue_per_user)
@@ -461,7 +472,8 @@ def initialize_user_adoption(sys_param):
     one_time_token_buy_per_user = sys_param['one_time_token_buy_per_user'][0]
     regular_token_buy_per_user = sys_param['regular_token_buy_per_user'][0]
 
-    token_holders = calculate_user_adoption(initial_token_holders,token_holders_after_10y,token_adoption_velocity,current_day,total_days)
+    # token_holders = calculate_user_adoption(initial_token_holders,token_holders_after_10y,token_adoption_velocity,current_day) # use this only for first day at token_launch
+    token_holders = initial_token_holders
 
     ## Calculating Token Buys
     token_buys =(one_time_token_buy_per_user+regular_token_buy_per_user)*token_holders
@@ -470,12 +482,12 @@ def initialize_user_adoption(sys_param):
     'ua_product_users': product_users, # amount of product users
     'ua_token_holders': token_holders, # amount of token holders
     'ua_product_revenue':product_revenue, # product revenue
-    'ua_token_buys': token_buys # amount of effective token buys
+    'ua_token_buys': token_buys, # amount of effective token buys
     }
 
     return user_adoption
 
-def initialize_business_assumptions(sys_param):
+def initialize_business_assumptions(sys_param, initial_user_adoption):
     """
     Initialize the business assumptions metrics.
     """
@@ -488,10 +500,47 @@ def initialize_business_assumptions(sys_param):
         initial_capital = calculate_raised_capital(sys_param)
     else:
         initial_capital = sys_param['initial_cash_balance'][0]
+    
+
+    product_revenue = initial_user_adoption['ua_product_revenue']
+
+    # revenue shares if provided by the UI
+    staker_rev_share = sys_param['staker_rev_share'][0] if sys_param['staking_vesting_token_allocation'][0] <= 0 else 0
+    if 'business_rev_share' in sys_param:
+        business_rev_share = sys_param['business_rev_share'][0]
+    else:
+        business_rev_share = 100 - staker_rev_share
+    if 'service_provider_rev_share' in sys_param:
+        service_provider_rev_share = sys_param['service_provider_rev_share'][0]
+    else:
+        service_provider_rev_share = 0
+    if 'incentivisation_rev_share' in sys_param:
+        incentivisation_rev_share = sys_param['incentivisation_rev_share'][0]
+    else:
+        incentivisation_rev_share = 0
 
     business_assumptions = {
     'ba_cash_balance': initial_capital, ## cash balance of the company
-    'ba_buybacks_usd': 0 ## buybacks in USD per month
+    'ba_cash_flow': product_revenue, ## cash flow of the company
+    'ba_buybacks_usd': 0, ## buybacks in USD per month
+    'ba_buybacks_cum_usd': 0, ## buybacks in USD cumulatively
+    'ba_fix_expenditures_usd': 0, ## fixed expenditures in USD per month
+    'ba_fix_expenditures_cum_usd': 0, ## fixed expenditures in USD cumulatively
+    'ba_var_expenditures_usd': 0, ## fixed expenditures in USD per month
+    'ba_var_expenditures_cum_usd': 0, ## fixed expenditures in USD cumulatively
+    'ba_fix_business_revenue_usd': 0, # fixed business revenue
+    'ba_fix_business_revenue_cum_usd': 0, # fixed business revenue cumulatively
+    'ba_var_business_revenue_usd': product_revenue * (business_rev_share/100), # business revenue
+    'ba_var_business_revenue_cum_usd': product_revenue * (business_rev_share/100), # business revenue cumulatively
+    'ba_staker_revenue_usd': product_revenue * (staker_rev_share/100), # staker revenue
+    'ba_staker_revenue_cum_usd': product_revenue * (staker_rev_share/100), # staker revenue cumulatively
+    'ba_service_provider_revenue_usd': product_revenue * (service_provider_rev_share/100), # service provider revenue
+    'ba_service_provider_revenue_cum_usd': product_revenue * (service_provider_rev_share/100), # service provider revenue cumulatively
+    'ba_incentivisation_revenue_usd': 0, # incentivisation revenue
+    'ba_incentivisation_revenue_cum_usd': 0, # incentivisation revenue cumulatively
+    'ba_buyback_from_revenue_share_incentivisation_usd': 0, # buyback from revenue share in USD for incentivisations
+    'ba_buyback_from_revenue_share_incentives' : 0, # buyback incentives from revenue share in tokens
+    'ba_business_buybacks_usd' : 0, # business buybacks in USD
     }
 
     return business_assumptions
@@ -509,11 +558,11 @@ def initialize_utilities(initial_stakeholders, sys_param):
     'u_staking_allocation':0, # staking allocation per timestep
     'u_staking_allocation_cum':staked_tokens, # staking allocation cumulatively
     'u_staking_remove':0, # staking token removal
-    'u_buyback_from_revenue_share_usd': 0, # buyback from revenue share in USD
-    'u_staking_revenue_share_rewards':0, # revenue sharing rewards
-    'u_staking_vesting_rewards':0, # staking vesting rewards
-    'u_staking_minting_rewards':0, # staking minting rewards
-    'u_liquidity_mining_rewards': 0, # liquidity mining rewards
+    'u_buyback_from_revenue_share_staking_usd': 0, # buyback from revenue share in USD as reward for stakers
+    'u_staking_revenue_share_rewards':0, # revenue sharing rewards in tokens
+    'u_staking_vesting_rewards':0, # staking vesting rewards in tokens
+    'u_staking_minting_rewards':0, # staking minting rewards in tokens
+    'u_liquidity_mining_rewards': 0, # liquidity mining rewards in tokens
     'u_liquidity_mining_allocation': 0, # liquidity mining token allocation per timestep
     'u_liquidity_mining_allocation_cum': liquidity_mining_tokens, # liquidity mining token allocation cumulatively
     'u_liquidity_mining_allocation_remove': 0, # liquidity mining token removal
@@ -605,3 +654,14 @@ def months_difference(date1, date2):
     month_diff = date2.month - date1.month
     total_months = year_diff * 12 + month_diff
     return total_months
+
+def calculate_buyback_share_tokens(buyback_share_amount_usd, buyback_all_amount_usd, lp_tokens_after_liquidity_addition, lp_tokens_after_buyback):
+    # calculate macro rewards from staking revenue share
+    bought_back_tokens = (lp_tokens_after_liquidity_addition - lp_tokens_after_buyback)
+    if buyback_all_amount_usd > 0:
+        buyback_share_tokens = bought_back_tokens * (buyback_share_amount_usd/buyback_all_amount_usd)
+    elif buyback_all_amount_usd == 0:
+        buyback_share_tokens = 0
+    else:
+        raise ValueError(f"Business buybacks in USD terms buyback_all_amount_usd({buyback_all_amount_usd}) must not be negative!")
+    return buyback_share_tokens

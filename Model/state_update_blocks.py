@@ -6,6 +6,7 @@ from Model.parts.ecosystem.liquidity_pool import *
 from Model.parts.ecosystem.token_economy import *
 from Model.parts.business.user_adoption import *
 from Model.parts.business.business_assumptions import *
+from Model.parts.business.business_buybacks import *
 from Model.parts.agents_behavior.agent_meta_bucket_behavior import *
 from Model.parts.utilities.staking_mint_burn import *
 from Model.parts.utilities.staking_revenue_share import *
@@ -95,16 +96,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 9: utilities/staking_revenue_share.py
-        'policies': {
-            'staking_revenue_share_buyback_amount': staking_revenue_share_buyback_amount,
-        },
-        'variables': {
-            'utilities': update_buyback_amount_from_revenue_share,
-        },
-    },
-    {
-        # substep 10: utilities/staking_vesting.py
+        # substep 9: utilities/staking_vesting.py
         'policies': {
             'staking_vesting_allocation': staking_vesting_allocation,
         },
@@ -114,7 +106,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 11: utilities/burning.py
+        # substep 10: utilities/burning.py
         'policies': {
             'burning_agent_allocation': burning_agent_allocation,
         },
@@ -125,7 +117,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 12: utilities/staking_mint_burn.py
+        # substep 11: utilities/staking_mint_burn.py
         'policies': {
             'staking_mint_burn': staking_mint_burn,
         },
@@ -136,7 +128,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 13: utilities/transfer.py
+        # substep 12: utilities/transfer.py
         'policies': {
             'transfer_agent_allocation': transfer_agent_allocation,
         },
@@ -146,16 +138,17 @@ state_update_blocks = [
         },
     },
     {
-        # substep 14: business/business_assumptions.py
+        # substep 13: business/business_assumptions.py
         'policies': {
             'business_assumption_metrics': business_assumption_metrics,
         },
         'variables': {
             'business_assumptions': update_business_assumptions,
+            'utilities': update_buyback_amount_from_revenue_share,
         },
     },
     {
-        # substep 15: ecosystem/liquidity_pool.py
+        # substep 14: ecosystem/liquidity_pool.py
         'policies': {
             'liquidity_pool_tx1_after_adoption': liquidity_pool_tx1_after_adoption,
         },
@@ -165,7 +158,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 16: utilities/holding.py
+        # substep 15: utilities/holding.py
         'policies': {
             'holding_agent_allocation': holding_agent_allocation,
         },
@@ -175,7 +168,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 17: utilities/liquidity_mining.py
+        # substep 16: utilities/liquidity_mining.py
         'policies': {
             'liquidity_mining_agent_allocation': liquidity_mining_agent_allocation,
         },
@@ -185,7 +178,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 18: ecosystem/liquidity_pool.py
+        # substep 17: ecosystem/liquidity_pool.py
         'policies': {
             'liquidity_pool_tx2_after_vesting_sell': liquidity_pool_tx2_after_vesting_sell,
         },
@@ -194,7 +187,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 19: ecosystem/liquidity_pool.py
+        # substep 18: ecosystem/liquidity_pool.py
         'policies': {
             'liquidity_pool_tx3_after_liquidity_addition': liquidity_pool_tx3_after_liquidity_addition,
         },
@@ -203,7 +196,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 20: ecosystem/liquidity_pool.py
+        # substep 19: ecosystem/liquidity_pool.py
         'policies': {
             'liquidity_pool_tx4_after_buyback': liquidity_pool_tx4_after_buyback,
         },
@@ -212,7 +205,7 @@ state_update_blocks = [
         },
     },
     {
-        # substep 21: utilities/staking_revenue_share.py
+        # substep 20: utilities/staking_revenue_share.py
         'policies': {
             'staking_revenue_share_buyback': staking_revenue_share_buyback,
         },
@@ -222,7 +215,27 @@ state_update_blocks = [
         },
     },
     {
-        # substep 22: ecosystem/token_economy.py
+        # substep 21: business/business_buybacks.py
+        'policies': {
+            'business_buyback': business_buyback,
+        },
+        'variables': {
+            'agents': update_agents_after_business_buyback
+        },
+    },
+    {
+        # substep 22: ecosystem/incentivisation.py
+        'policies': {
+            'incentivisation_revenue_share_buyback': incentivisation_revenue_share_buyback,
+        },
+        'variables': {
+            'agents': update_agents_after_incentivisation_revenue_share_buyback,
+            'business_assumptions': update_business_assumptions_after_incentivisation_revenue_share_buyback,
+            'token_economy': update_token_economy_after_incentivisation_revenue_share
+        },
+    },
+    {
+        # substep 23: ecosystem/token_economy.py
         'policies': {
             'token_economy_metrics': token_economy_metrics,
         },
