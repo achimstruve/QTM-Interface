@@ -76,6 +76,10 @@ def generate_agent_meta_bucket_behavior(params, substep, state_history, prev_sta
             current_month = prev_state['timestep']
             current_date = prev_state['date']
 
+            # get utility allocation share from last timestep
+            if current_month > 1:
+                max_utility_alloc_prev = max([agents[agent]['a_actions']['utility'] for agent in agents])
+
             # find token holder change Tc
             prev_token_holders = prev_state['user_adoption']['ua_token_holders']
             current_day = (pd.to_datetime(current_date)+pd.DateOffset(months=1) - pd.to_datetime('today')).days
@@ -98,6 +102,9 @@ def generate_agent_meta_bucket_behavior(params, substep, state_history, prev_sta
             # calculate the staking share as meta token allocation as function of the current staking APR and assigned staking_share, which serves as a weight
             St = (np.sqrt(staking_apr/agent_staking_apr_target)-1) * staking_share/100 if staking_apr > 0 else 0
             St = St if St > 0 else 0
+            # add a damping term to the staking share to avoid extreme changes
+            St_diff = max_utility_alloc_prev - St if current_month > 1 else 0
+            St = St + St_diff * 0.75
 
             # calculate all individual utility allocations
             U = St + liquidity_mining_share/100 + burning_share/100 + transfer_share/100 + holding_share/100
@@ -111,6 +118,9 @@ def generate_agent_meta_bucket_behavior(params, substep, state_history, prev_sta
                 St = St + S
                 S = 0
                 U = St + liquidity_mining_share/100 + burning_share/100 + transfer_share/100 + holding_share/100
+            
+            # adjust St w.r.t. the sum of all individual utility allocations
+            St = 1 - (liquidity_mining_share/100 + burning_share/100 + transfer_share/100 + holding_share/100)
 
             np.testing.assert_allclose(S+U+H, 1, rtol=0.001, err_msg=f"Agent meta bucket behavior does not sum up to 100% ({(S+U+H)*100.0}), S: {S}, U: {U}, H: {H}.")
 
@@ -120,8 +130,8 @@ def generate_agent_meta_bucket_behavior(params, substep, state_history, prev_sta
             # populate agent behavior dictionary
             for i, agent in enumerate(agents):
                 
-                remove = (1-U) * random.uniform(0, 0.1)
-                
+                remove = np.min([(1-U) * random.uniform(0.0, 0.1),1])
+           
                 agent_behavior_dict[agent] = {
                     'sell': S,
                     'hold': H,
@@ -133,7 +143,7 @@ def generate_agent_meta_bucket_behavior(params, substep, state_history, prev_sta
                 # consistency check for agent metabucket behavior
                 error_msg = f"Agent meta bucket behavior for agent {agent} does not sum up to 100% ({(agent_behavior_dict[agent]['sell'] + agent_behavior_dict[agent]['hold'] + agent_behavior_dict[agent]['utility'])*100.0})."
                 np.testing.assert_allclose(agent_behavior_dict[agent]['sell'] + agent_behavior_dict[agent]['hold'] + agent_behavior_dict[agent]['utility'], 1.0, rtol=0.0001, err_msg=error_msg)
-        
+
         elif params['agent_behavior'] == 'static':
             """
             Define the agent behavior for each agent type for the static 1:1 QTM behavior
