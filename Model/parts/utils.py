@@ -370,7 +370,8 @@ def initialize_dex_liquidity(sys_param):
         'lp_token_price_min': 0, # min price of LP token
         'lp_tokens_after_adoption': 0, # tokens after adoption tx 1
         'lp_tokens_after_liquidity_addition':0, # Token after liquidity addition tx 3
-        'lp_tokens_after_buyback': 0 # tokens after buy back tx 4
+        'lp_tokens_after_buyback': 0, # tokens after buy back tx 4
+        'lp_sold_business_tokens': 0, # sold tokens by business
     }
 
     return liquidity_pool
@@ -419,9 +420,9 @@ def generate_initial_token_economy_metrics(initial_stakeholders, initial_liquidi
         'te_minted_tokens_cum': 0, # tokens minted cumulatively
         'te_minted_tokens_usd': 0, # tokens minted in USD
         'te_incentivised_tokens' : 0, # tokens incentivised
+        'te_incentivised_tokens_cum' : 0, # tokens incentivised cumulatively
         'te_incentivised_tokens_usd' : 0, # tokens incentivised in USD
         'te_incentivised_tokens_usd_cum' : 0, # tokens incentivised in USD cumulatively
-        'te_incentivised_tokens_cum' : 0, # tokens incentivised cumulatively
         'te_airdrop_tokens' : 0, # tokens airdropped
         'te_airdrop_tokens_usd' : 0, # tokens airdropped in USD
         'te_airdrop_tokens_usd_cum' : 0, # tokens airdropped in USD cumulatively
@@ -536,8 +537,8 @@ def initialize_business_assumptions(sys_param, initial_user_adoption):
     'ba_staker_revenue_cum_usd': product_revenue * (staker_rev_share/100), # staker revenue cumulatively
     'ba_service_provider_revenue_usd': product_revenue * (service_provider_rev_share/100), # service provider revenue
     'ba_service_provider_revenue_cum_usd': product_revenue * (service_provider_rev_share/100), # service provider revenue cumulatively
-    'ba_incentivisation_revenue_usd': 0, # incentivisation revenue
-    'ba_incentivisation_revenue_cum_usd': 0, # incentivisation revenue cumulatively
+    'ba_incentivisation_revenue_usd': product_revenue * (incentivisation_rev_share/100), # incentivisation revenue
+    'ba_incentivisation_revenue_cum_usd': product_revenue * (incentivisation_rev_share/100), # incentivisation revenue cumulatively
     'ba_buyback_from_revenue_share_incentivisation_usd': 0, # buyback from revenue share in USD for incentivisations
     'ba_buyback_from_revenue_share_incentives' : 0, # buyback incentives from revenue share in tokens
     'ba_business_buybacks_usd' : 0, # business buybacks in USD
